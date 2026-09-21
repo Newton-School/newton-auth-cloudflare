@@ -102,6 +102,10 @@ The guard rejects an authenticated-but-unauthorized user with `403`. If your app
 
 The callback path is configurable, but it must exactly match the redirect URI registered for the Newton OAuth application in newton-api. The backend validates `redirect_uri` strictly. The SDK derives it from the inbound request URL: `https://<host>/newton/callback`.
 
+## Redirect targets
+
+The `next` given to `/newton/login`, and the target stored in the state cookie, must be a path on this app: a single leading `/`, not the login route itself, and never a scheme or a protocol-relative `//host`. Anything else is answered `400` before a state cookie is set, and a callback carrying an off-site target is rejected. This closes the open redirect a login flow otherwise offers to phishing links.
+
 ## Differences from newton-auth-nodejs
 
 - Every method that touches a cookie or an assertion is `async` (WebCrypto is promise-based): `buildLoginRedirect`, `handleCallback`, `authenticate`, and the cookie builders and parsers.

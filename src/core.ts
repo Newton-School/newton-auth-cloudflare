@@ -58,6 +58,7 @@ export class NewtonAuth {
   async buildLoginRedirect(req: AuthRequestData, redirectUri?: string): Promise<LoginRedirect> {
     const state = b64urlEncode(randomBytes(24))
     const postLoginRedirect = redirectUri || currentPath(req)
+    this.validateLoginRedirectTarget(postLoginRedirect)
     const stateCookieValue = await buildStateCookieValue(state, postLoginRedirect, this.config.sessionSigningSecret)
 
     const location = new URL(`${this.config.newtonApiBase}/platform-auth/login`)
@@ -79,6 +80,7 @@ export class NewtonAuth {
     if (!stateCookieValue) throw new InvalidStateError()
     const stateData = await parseStateCookieValue(stateCookieValue, this.config.sessionSigningSecret)
     if (!stateParam || stateParam !== stateData.state) throw new InvalidStateError()
+    if (!isLocalPath(stateData.redirect_uri)) throw new InvalidStateError()
 
     const assertion = await decryptCallbackAssertion(
       identity,
@@ -143,11 +145,21 @@ export class NewtonAuth {
     return [deleteCookie(this.config.sessionCookieName), deleteCookie(this.config.stateCookieName)]
   }
 
+  /**
+   * The post-login target must be a path on this app: it may not be the login
+   * route itself (a loop) and may not point off-site (an open redirect).
+   */
   validateLoginRedirectTarget(next: string): void {
-    if (next === this.config.loginPath) {
+    if (!isLocalPath(next) || next === this.config.loginPath) {
       throw new NewtonAuthError("invalid login redirect target")
     }
   }
+}
+
+// A same-origin absolute path: one leading "/", so no scheme, no
+// protocol-relative "//host", and no "/\host" (which browsers read as "//host").
+function isLocalPath(next: string): boolean {
+  return next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")
 }
 
 function emptyResult(shouldClearSession: boolean): AuthResult {

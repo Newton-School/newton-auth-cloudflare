@@ -211,4 +211,27 @@ describe("clearSessionCookies / validateLoginRedirectTarget", () => {
     expect(() => auth.validateLoginRedirectTarget("/newton/login")).toThrow("invalid login redirect target")
     expect(() => auth.validateLoginRedirectTarget("/anything-else")).not.toThrow()
   })
+
+  it("rejects off-site redirect targets (open redirect)", async () => {
+    const auth = makeAuth()
+    for (const bad of ["https://evil.example.com/x", "//evil.example.com", "/\\evil.example.com", "evil"]) {
+      expect(() => auth.validateLoginRedirectTarget(bad)).toThrow("invalid login redirect target")
+      await expect(auth.buildLoginRedirect(req(), bad)).rejects.toThrow("invalid login redirect target")
+    }
+    expect(() => auth.validateLoginRedirectTarget("")).toThrow("invalid login redirect target")
+    // An empty explicit target means "current path", which is always local.
+    expect((await auth.buildLoginRedirect(req(), "")).stateCookie.value).toBeTruthy()
+    expect(() => auth.validateLoginRedirectTarget("/reports/2026-09-20?x=1")).not.toThrow()
+  })
+
+  it("rejects an off-site target even from a validly signed state cookie", async () => {
+    const auth = makeAuth()
+    const stateCookieValue = await buildStateCookieValue("st1", "https://evil.example.com/", CLIENT_SECRET)
+    const identity = sealServerSide(validAssertion(), CALLBACK_SECRET, CLIENT_ID)
+    await expect(
+      auth.handleCallback(
+        req({ path: "/newton/callback", query: { state: "st1", identity }, cookies: { newton_state: stateCookieValue } }),
+      ),
+    ).rejects.toThrow(InvalidStateError)
+  })
 })

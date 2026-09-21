@@ -69,9 +69,15 @@ describe("worker adapter", () => {
     )
   })
 
-  it("loginGET rejects a next equal to the login path", async () => {
-    const bad = await makeHandlers().loginGET(new Request("https://app.example.com/newton/login?next=/newton/login"))
-    expect(bad.status).toBe(400)
+  it("loginGET rejects a next equal to the login path or pointing off-site", async () => {
+    const handlers = makeHandlers()
+    for (const next of ["/newton/login", "https://evil.example.com/", "//evil.example.com", "/\\evil.example.com"]) {
+      const bad = await handlers.loginGET(
+        new Request(`https://app.example.com/newton/login?next=${encodeURIComponent(next)}`),
+      )
+      expect(bad.status).toBe(400)
+      expect(bad.headers.get("set-cookie")).toBeNull()
+    }
   })
 
   it("callbackGET establishes the session and clears state cookie", async () => {
