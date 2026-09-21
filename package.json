@@ -1,6 +1,6 @@
 {
   "name": "newton-auth-cloudflare",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Newton School authentication SDK for Cloudflare Workers (WebCrypto, zero dependencies)",
   "license": "UNLICENSED",
   "repository": "github:Newton-School/newton-auth-cloudflare",
